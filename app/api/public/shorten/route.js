@@ -31,7 +31,7 @@ export async function GET(req) {
     return NextResponse.json({ status: "error", message: "Invalid API key" });
   }
 
-  // 🔥 External shortener
+  // 🔥 External shortener call
   let domain = user.domain;
   let token = user.apiToken;
 
@@ -46,10 +46,10 @@ export async function GET(req) {
 
   const externalShort = data.shortenedUrl || data.short || data.url;
 
-  // 🔥 Generate ID
+  // 🔥 Generate your own ID
   const customId = generateId();
 
-  // 💾 Save
+  // 💾 Save in DB
   await addDoc(collection(db, "links"), {
     customId,
     externalLink: externalShort,
@@ -57,11 +57,9 @@ export async function GET(req) {
     createdAt: new Date()
   });
 
-  // 🔥 Dynamic domain fix
-  const baseUrl = req.nextUrl.origin;
-
+  // 🔥 RETURN YOUR LINK (NOT external)
   return NextResponse.json({
     status: "success",
-    shortenedUrl: `${baseUrl}/start/${customId}`
+    shortlink: `https://securelink-network.vercel.app/start/${customId}`
   });
 }
