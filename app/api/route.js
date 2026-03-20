@@ -14,7 +14,6 @@ export async function GET(req) {
   }
 
   try {
-    // 👉 call existing API
     const baseUrl = req.nextUrl.origin;
 
     const res = await fetch(
@@ -23,7 +22,10 @@ export async function GET(req) {
 
     const data = await res.json();
 
-    return NextResponse.json(data);
+    // 🔥 IMPORTANT FIX
+    return NextResponse.json({
+      shortenedUrl: data.shortenedUrl || data.short || data.url
+    });
 
   } catch (err) {
     return NextResponse.json({
