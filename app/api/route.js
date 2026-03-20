@@ -22,10 +22,22 @@ export async function GET(req) {
 
     const data = await res.json();
 
-    // 🔥 FINAL FORMAT (bot compatible)
+    // 🔥 FIX
+    let finalUrl = data.shortenedUrl || data.short || data.url || data.shortlink;
+
+    if (!finalUrl) {
+      return NextResponse.json({
+        status: "error",
+        message: "No shortened URL found"
+      });
+    }
+
+    // 🔥 localhost fix
+    finalUrl = finalUrl.replace("https://securelink-network.vercel.app/", baseUrl);
+
     return NextResponse.json({
       status: "success",
-      shortenedUrl: data.shortenedUrl || data.short || data.url
+      shortenedUrl: finalUrl
     });
 
   } catch (err) {
