@@ -1,14 +1,3 @@
-Ye lo updated `app/api/public/route.js` — isme:
-
-* unique `apiKey` validate hoga
-* deleted user ka API auto invalid ho jayega
-* optional `isActive: false` bhi handle hoga
-* domain me `https://` auto add hoga
-* stronger custom ID banega
-* duplicate safe random ID retry karega
-* response clean rahega for bot/bulk use
-
-```js
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -191,6 +180,3 @@ export async function POST(req) {
     );
   }
 }
-```
-
-Ek important cheez: is route me maine `limit` use kiya hai, to import me `limit` add rehna chahiye, aur `crypto` import bhi.
