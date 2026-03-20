@@ -80,8 +80,9 @@ export async function GET(req) {
   });
 
   // 🔥 Dynamic domain (no slash issue)
-  const baseUrl = req.nextUrl.origin.replace(/\/$/, "");
-  const finalUrl = `${baseUrl}/start/${customId}`;
+  const protocol = req.headers.get("x-forwarded-proto") || "https";
+  const host = req.headers.get("host");
+  const finalUrl = new URL(`/start/${customId}`, `${protocol}://${host}`).toString();
 
   // 🔥 UNIVERSAL RESPONSE (all bots supported)
   return NextResponse.json({
