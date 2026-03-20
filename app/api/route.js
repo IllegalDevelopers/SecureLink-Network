@@ -22,8 +22,9 @@ export async function GET(req) {
 
     const data = await res.json();
 
-    // 🔥 IMPORTANT FIX
+    // 🔥 FINAL FORMAT (bot compatible)
     return NextResponse.json({
+      status: "success",
       shortenedUrl: data.shortenedUrl || data.short || data.url
     });
 
