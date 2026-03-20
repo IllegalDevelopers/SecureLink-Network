@@ -60,6 +60,6 @@ export async function GET(req) {
   // 🔥 RETURN YOUR LINK (NOT external)
   return NextResponse.json({
     status: "success",
-    shortlink: `http://localhost:3000/start/${customId}`
+    shortlink: `https://securelink-network.vercel.app/start/${customId}`
   });
 }
