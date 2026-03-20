@@ -13,7 +13,10 @@ export async function GET(req) {
   const longUrl = searchParams.get("url");
 
   if (!apiKey || !longUrl) {
-    return NextResponse.json({ status: "error", message: "Missing params" });
+    return NextResponse.json({
+      status: "error",
+      message: "Missing api or url"
+    });
   }
 
   const snap = await getDocs(collection(db, "users"));
@@ -28,10 +31,13 @@ export async function GET(req) {
   });
 
   if (!user) {
-    return NextResponse.json({ status: "error", message: "Invalid API key" });
+    return NextResponse.json({
+      status: "error",
+      message: "Invalid API key"
+    });
   }
 
-  // 🔥 External shortener call
+  // 🔥 External shortener
   let domain = user.domain;
   let token = user.apiToken;
 
@@ -41,15 +47,31 @@ export async function GET(req) {
 
   const apiUrl = `${domain}/api?api=${token}&url=${encodeURIComponent(longUrl)}`;
 
-  const res = await fetch(apiUrl);
-  const data = await res.json();
+  let externalShort = null;
 
-  const externalShort = data.shortenedUrl || data.short || data.url;
+  try {
+    const res = await fetch(apiUrl);
 
-  // 🔥 Generate your own ID
+    const text = await res.text(); // 🔥 safe read
+
+    if (text) {
+      const data = JSON.parse(text);
+      externalShort =
+        data.shortenedUrl || data.short || data.url || data.shortlink;
+    }
+  } catch (err) {
+    console.log("External API error:", err.message);
+  }
+
+  // 🔥 fallback (never fail)
+  if (!externalShort) {
+    externalShort = longUrl;
+  }
+
+  // 🔥 Generate ID
   const customId = generateId();
 
-  // 💾 Save in DB
+  // 💾 Save
   await addDoc(collection(db, "links"), {
     customId,
     externalLink: externalShort,
@@ -57,9 +79,16 @@ export async function GET(req) {
     createdAt: new Date()
   });
 
-  // 🔥 RETURN YOUR LINK (NOT external)
+  // 🔥 Dynamic domain (no slash issue)
+  const baseUrl = req.nextUrl.origin.replace(/\/$/, "");
+  const finalUrl = `${baseUrl}/start/${customId}`;
+
+  // 🔥 UNIVERSAL RESPONSE (all bots supported)
   return NextResponse.json({
     status: "success",
-    shortlink: `https://securelink-network.vercel.app/start/${customId}`
+    shortenedUrl: finalUrl, // ✅ main
+    shortlink: finalUrl,    // ✅ backup
+    short: finalUrl,        // ✅ backup
+    url: finalUrl           // ✅ backup
   });
 }
