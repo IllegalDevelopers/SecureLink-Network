@@ -7,59 +7,88 @@ function generateId(length = 6) {
 }
 
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
+  try {
+    const { searchParams } = new URL(req.url);
 
-  const apiKey = searchParams.get("api");
-  const longUrl = searchParams.get("url");
+    const apiKey = searchParams.get("api");
+    const longUrl = searchParams.get("url");
 
-  if (!apiKey || !longUrl) {
-    return NextResponse.json({ status: "error", message: "Missing params" });
-  }
-
-  const snap = await getDocs(collection(db, "users"));
-
-  let user = null;
-
-  snap.forEach(doc => {
-    const data = doc.data();
-    if (data.apiKey === apiKey && data.isActive) {
-      user = data;
+    if (!apiKey || !longUrl) {
+      return NextResponse.json({
+        status: "error",
+        message: "Missing params"
+      });
     }
-  });
 
-  if (!user) {
-    return NextResponse.json({ status: "error", message: "Invalid API key" });
+    // 🔍 Find user
+    const snap = await getDocs(collection(db, "users"));
+    let user = null;
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      if (data.apiKey === apiKey && data.isActive) {
+        user = data;
+      }
+    });
+
+    if (!user) {
+      return NextResponse.json({
+        status: "error",
+        message: "Invalid API key"
+      });
+    }
+
+    // 🔥 External shortener call
+    let domain = user.domain;
+    let token = user.apiToken;
+
+    // ensure https
+    if (!domain.startsWith("http")) {
+      domain = "https://" + domain;
+    }
+
+    // remove trailing slash (IMPORTANT FIX)
+    domain = domain.replace(/\/+$/, "");
+
+    const apiUrl = `${domain}/api?api=${token}&url=${encodeURIComponent(longUrl)}`;
+
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+
+    const externalShort =
+      data.shortenedUrl || data.short || data.url;
+
+    // 🔥 Generate custom ID
+    const customId = generateId();
+
+    // 💾 Save to DB
+    await addDoc(collection(db, "links"), {
+      customId,
+      externalLink: externalShort,
+      originalUrl: longUrl,
+      createdAt: new Date()
+    });
+
+    // 🔥 BASE URL FIX (NO SLASH ISSUE EVER)
+    const baseUrl = (
+      process.env.BASE_URL ||
+      `${req.nextUrl.protocol}//${req.nextUrl.host}`
+    ).replace(/\/+$/, "");
+
+    // 🔥 FINAL RESPONSE (IMPORTANT: shortenedUrl use karo)
+    return NextResponse.json({
+      status: "success",
+      shortenedUrl: `${baseUrl}/start/${customId}`.replace(
+  "vercel.appstart",
+  "vercel.app/start"
+)
+    });
+
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({
+      status: "error",
+      message: "Server error"
+    });
   }
-
-  // 🔥 External shortener call
-  let domain = user.domain;
-  let token = user.apiToken;
-
-  if (!domain.startsWith("http")) {
-    domain = "https://" + domain;
-  }
-
-  const apiUrl = `${domain}/api?api=${token}&url=${encodeURIComponent(longUrl)}`;
-
-  const res = await fetch(apiUrl);
-  const data = await res.json();
-
-  const externalShort = data.shortenedUrl || data.short || data.url;
-
-  // 🔥 Generate your own ID
-  const customId = generateId();
-
-  // 💾 Save in DB
-  await addDoc(collection(db, "links"), {
-    customId,
-    externalLink: externalShort,
-    originalUrl: longUrl,
-    createdAt: new Date()
-  });
-
-  // 🔥 RETURN YOUR LINK (NOT external)
-  return NextResponse.json({
-    status: "success",
-    shortlink: `https://securelink-network.vercel.app/start/${customId}`
-  });
 }
