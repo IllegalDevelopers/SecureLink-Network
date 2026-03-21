@@ -1,49 +1,59 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 
 export async function POST(req) {
   try {
     const { token, timestamp, id } = await req.json();
 
+    // 🔒 1. validation
     if (!token || !timestamp || !id) {
       return NextResponse.json({ success: false, error: "Invalid request" });
     }
 
     const now = Date.now();
 
-    // ⏳ wait check
+    // ⏳ 2. wait check
     if (now - timestamp < 5000) {
       return NextResponse.json({ success: false, error: "Wait not completed" });
     }
 
-    // 🔒 token check
-    if (!global.tokens || !global.tokens[token]) {
+    // 🔒 3. check token in DB
+    const tokenRef = doc(db, "tokens", token);
+    const tokenSnap = await getDoc(tokenRef);
+
+    if (!tokenSnap.exists()) {
       return NextResponse.json({ success: false, error: "Invalid token" });
     }
 
-    const tokenData = global.tokens[token];
+    const tokenData = tokenSnap.data();
 
-    // ⏳ expiry
+    // ⏳ 4. expiry check
     if (now - tokenData.createdAt > 5 * 60 * 1000) {
-      delete global.tokens[token];
+      await deleteDoc(tokenRef);
       return NextResponse.json({ success: false, error: "Token expired" });
     }
 
-    // 🔥 reuse block
+    // 🔥 5. reuse block
     if (tokenData.used) {
       return NextResponse.json({ success: false, error: "Already verified" });
     }
 
-    tokenData.used = true;
+    // ✅ mark used
+    await setDoc(tokenRef, {
+      ...tokenData,
+      used: true
+    });
 
-    // 🔐 access key
+    // 🔐 6. generate access key
     const accessKey = crypto.randomUUID();
 
-    global.accessKeys = global.accessKeys || {};
-    global.accessKeys[accessKey] = {
+    // 💾 store session in DB
+    await setDoc(doc(db, "sessions", accessKey), {
       token,
       id,
       expires: now + 2 * 60 * 1000
-    };
+    });
 
     return NextResponse.json({
       success: true,
@@ -51,6 +61,9 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    return NextResponse.json({ success: false, error: err.message });
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    });
   }
 }
