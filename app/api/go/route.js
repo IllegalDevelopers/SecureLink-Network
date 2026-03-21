@@ -1,53 +1,44 @@
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
-import { NextResponse } from "next/server";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const key = searchParams.get("key");
 
-  // 🔒 1. Key check
-  if (!key || !global.accessKeys || !global.accessKeys[key]) {
-    return new NextResponse("Unauthorized", { status: 403 });
+  if (!key) {
+    return new Response("Unauthorized", { status: 403 });
   }
 
-  const session = global.accessKeys[key];
+  const snap = await getDoc(doc(db, "sessions", key));
 
-  // ⏳ 2. Expiry check
+  if (!snap.exists()) {
+    return new Response("Invalid or expired", { status: 403 });
+  }
+
+  const session = snap.data();
+
   if (Date.now() > session.expires) {
-    delete global.accessKeys[key];
-    return new NextResponse("Expired", { status: 403 });
+    await deleteDoc(doc(db, "sessions", key));
+    return new Response("Expired", { status: 403 });
   }
 
-  // 🔒 3. ID binding
   if (session.id !== id) {
-    return new NextResponse("Invalid link", { status: 403 });
+    return new Response("Invalid link", { status: 403 });
   }
 
-  // 🔥 4. One-time use
-  delete global.accessKeys[key];
+  // 🔥 one-time use
+  await deleteDoc(doc(db, "sessions", key));
 
-  try {
-    const snap = await getDocs(collection(db, "links"));
+  // 🔥 fetch original link
+  const linksSnap = await getDocs(collection(db, "links"));
 
-    for (const docSnap of snap.docs) {
-      const data = docSnap.data();
-
-      if (data.customId === id) {
-
-        // 🔥 SAFE REDIRECT (NO PROXY)
-        return NextResponse.redirect(data.externalLink, {
-          headers: {
-            "Referrer-Policy": "no-referrer"
-          }
-        });
-      }
+  for (const docSnap of linksSnap.docs) {
+    const data = docSnap.data();
+    if (data.customId === id) {
+      return Response.redirect(data.externalLink);
     }
-
-    return new NextResponse("Not found", { status: 404 });
-
-  } catch (err) {
-    return new NextResponse("Server error", { status: 500 });
   }
+
+  return new Response("Not found", { status: 404 });
 }
