@@ -1,13 +1,13 @@
+import { db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+
 export async function GET() {
-  // 🔥 Use native crypto instead of uuid
   const token = crypto.randomUUID();
 
-  global.tokens = global.tokens || {};
-
-  global.tokens[token] = {
+  await setDoc(doc(db, "tokens", token), {
     createdAt: Date.now(),
     used: false
-  };
+  });
 
   return Response.json({ token });
 }
