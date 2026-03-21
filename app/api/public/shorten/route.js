@@ -35,9 +35,13 @@ export async function GET(req) {
   let domain = user.domain;
   let token = user.apiToken;
 
+  // ensure https
   if (!domain.startsWith("http")) {
     domain = "https://" + domain;
   }
+
+  // remove trailing slash (important fix)
+  domain = domain.replace(/\/+$/, "");
 
   const apiUrl = `${domain}/api?api=${token}&url=${encodeURIComponent(longUrl)}`;
 
@@ -57,9 +61,14 @@ export async function GET(req) {
     createdAt: new Date()
   });
 
-  // 🔥 RETURN YOUR LINK (NOT external)
+  // 🔥 BASE URL FIX (IMPORTANT)
+  const baseUrl =
+    process.env.BASE_URL ||
+    `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+
+  // 🔥 RETURN YOUR LINK (FIXED)
   return NextResponse.json({
     status: "success",
-    shortlink: `https://securelink-network.vercel.app/start/${customId}`
+    shortlink: `${baseUrl}/start/${customId}`
   });
 }
