@@ -13,10 +13,7 @@ export async function GET(req) {
   const longUrl = searchParams.get("url");
 
   if (!apiKey || !longUrl) {
-    return NextResponse.json({
-      status: "error",
-      message: "Missing api or url"
-    });
+    return NextResponse.json({ status: "error", message: "Missing params" });
   }
 
   const snap = await getDocs(collection(db, "users"));
@@ -31,13 +28,10 @@ export async function GET(req) {
   });
 
   if (!user) {
-    return NextResponse.json({
-      status: "error",
-      message: "Invalid API key"
-    });
+    return NextResponse.json({ status: "error", message: "Invalid API key" });
   }
 
-  // 🔥 External shortener
+  // 🔥 External shortener call
   let domain = user.domain;
   let token = user.apiToken;
 
@@ -47,31 +41,15 @@ export async function GET(req) {
 
   const apiUrl = `${domain}/api?api=${token}&url=${encodeURIComponent(longUrl)}`;
 
-  let externalShort = null;
+  const res = await fetch(apiUrl);
+  const data = await res.json();
 
-  try {
-    const res = await fetch(apiUrl);
+  const externalShort = data.shortenedUrl || data.short || data.url;
 
-    const text = await res.text(); // 🔥 safe read
-
-    if (text) {
-      const data = JSON.parse(text);
-      externalShort =
-        data.shortenedUrl || data.short || data.url || data.shortlink;
-    }
-  } catch (err) {
-    console.log("External API error:", err.message);
-  }
-
-  // 🔥 fallback (never fail)
-  if (!externalShort) {
-    externalShort = longUrl;
-  }
-
-  // 🔥 Generate ID
+  // 🔥 Generate your own ID
   const customId = generateId();
 
-  // 💾 Save
+  // 💾 Save in DB
   await addDoc(collection(db, "links"), {
     customId,
     externalLink: externalShort,
@@ -79,17 +57,9 @@ export async function GET(req) {
     createdAt: new Date()
   });
 
-  // 🔥 Dynamic domain (no slash issue)
-  const protocol = req.headers.get("x-forwarded-proto") || "https";
-  const host = req.headers.get("host");
-  const finalUrl = new URL(`/start/${customId}`, `${protocol}://${host}`).toString();
-
-  // 🔥 UNIVERSAL RESPONSE (all bots supported)
+  // 🔥 RETURN YOUR LINK (NOT external)
   return NextResponse.json({
     status: "success",
-    shortenedUrl: finalUrl, // ✅ main
-    shortlink: finalUrl,    // ✅ backup
-    short: finalUrl,        // ✅ backup
-    url: finalUrl           // ✅ backup
+    shortlink: `http://localhost:3000/start/${customId}`
   });
 }
