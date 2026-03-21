@@ -7,30 +7,25 @@ export async function GET(req) {
   const id = searchParams.get("id");
   const key = searchParams.get("key");
 
-  // 🔒 1. Key required
-  if (!key) {
+  // 🔒 key check
+  if (!key || !global.accessKeys || !global.accessKeys[key]) {
     return new NextResponse("Unauthorized", { status: 403 });
-  }
-
-  // 🔒 2. Check valid access key
-  if (!global.accessKeys || !global.accessKeys[key]) {
-    return new NextResponse("Invalid access", { status: 403 });
   }
 
   const session = global.accessKeys[key];
 
-  // 🔒 3. Expiry check
+  // ⏳ expiry
   if (Date.now() > session.expires) {
     delete global.accessKeys[key];
-    return new NextResponse("Link expired", { status: 403 });
+    return new NextResponse("Expired", { status: 403 });
   }
 
-  // 🔒 4. ID binding (anti bypass)
+  // 🔒 id bind
   if (session.id !== id) {
     return new NextResponse("Invalid link", { status: 403 });
   }
 
-  // 🔥 5. One-time use
+  // 🔥 one-time use
   delete global.accessKeys[key];
 
   try {
