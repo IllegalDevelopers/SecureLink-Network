@@ -4,47 +4,45 @@ export async function POST(req) {
   try {
     const { token, timestamp, id } = await req.json();
 
-    // 🔒 1. Basic validation
     if (!token || !timestamp || !id) {
       return NextResponse.json({ success: false, error: "Invalid request" });
     }
 
     const now = Date.now();
 
-    // ⏳ 2. Minimum wait (5 sec)
+    // ⏳ wait check
     if (now - timestamp < 5000) {
       return NextResponse.json({ success: false, error: "Wait not completed" });
     }
 
-    // 🔒 3. Check token exists
+    // 🔒 token check
     if (!global.tokens || !global.tokens[token]) {
       return NextResponse.json({ success: false, error: "Invalid token" });
     }
 
     const tokenData = global.tokens[token];
 
-    // ⏳ 4. Token expiry (5 min)
+    // ⏳ expiry
     if (now - tokenData.createdAt > 5 * 60 * 1000) {
       delete global.tokens[token];
       return NextResponse.json({ success: false, error: "Token expired" });
     }
 
-    // 🔥 5. Prevent reuse
+    // 🔥 reuse block
     if (tokenData.used) {
       return NextResponse.json({ success: false, error: "Already verified" });
     }
 
-    // ✅ mark used
     tokenData.used = true;
 
-    // 🔐 6. Generate secure access key
+    // 🔐 access key
     const accessKey = crypto.randomUUID();
 
     global.accessKeys = global.accessKeys || {};
     global.accessKeys[accessKey] = {
       token,
-      id, // 🔥 bind with id (IMPORTANT)
-      expires: now + 2 * 60 * 1000 // 2 min expiry
+      id,
+      expires: now + 2 * 60 * 1000
     };
 
     return NextResponse.json({
