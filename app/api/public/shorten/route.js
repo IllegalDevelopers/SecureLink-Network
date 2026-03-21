@@ -78,7 +78,10 @@ export async function GET(req) {
     // 🔥 FINAL RESPONSE (IMPORTANT: shortenedUrl use karo)
     return NextResponse.json({
       status: "success",
-      shortenedUrl: `${baseUrl}/start/${customId}`
+      shortenedUrl: `${baseUrl}/start/${customId}`.replace(
+  "vercel.appstart",
+  "vercel.app/start"
+)
     });
 
   } catch (error) {
