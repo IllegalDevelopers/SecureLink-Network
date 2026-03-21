@@ -7,25 +7,25 @@ export async function GET(req) {
   const id = searchParams.get("id");
   const key = searchParams.get("key");
 
-  // 🔒 key check
+  // 🔒 1. Key check
   if (!key || !global.accessKeys || !global.accessKeys[key]) {
     return new NextResponse("Unauthorized", { status: 403 });
   }
 
   const session = global.accessKeys[key];
 
-  // ⏳ expiry
+  // ⏳ 2. Expiry check
   if (Date.now() > session.expires) {
     delete global.accessKeys[key];
     return new NextResponse("Expired", { status: 403 });
   }
 
-  // 🔒 id bind
+  // 🔒 3. ID binding
   if (session.id !== id) {
     return new NextResponse("Invalid link", { status: 403 });
   }
 
-  // 🔥 one-time use
+  // 🔥 4. One-time use
   delete global.accessKeys[key];
 
   try {
@@ -36,14 +36,9 @@ export async function GET(req) {
 
       if (data.customId === id) {
 
-        // 🔥 PROXY (NO URL LEAK)
-        const response = await fetch(data.externalLink);
-
-        const contentType = response.headers.get("content-type");
-
-        return new Response(response.body, {
+        // 🔥 SAFE REDIRECT (NO PROXY)
+        return NextResponse.redirect(data.externalLink, {
           headers: {
-            "Content-Type": contentType || "text/html",
             "Referrer-Policy": "no-referrer"
           }
         });
