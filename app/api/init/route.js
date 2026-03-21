@@ -1,7 +1,6 @@
-import { v4 as uuidv4 } from "uuid";
-
 export async function GET() {
-  const token = uuidv4();
+  // 🔥 Use native crypto instead of uuid
+  const token = crypto.randomUUID();
 
   global.tokens = global.tokens || {};
 
