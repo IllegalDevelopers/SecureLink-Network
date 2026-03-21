@@ -1,44 +1,26 @@
 import { db } from "@/lib/firebase";
-import { doc, getDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
+import { NextResponse } from "next/server";
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const key = searchParams.get("key");
 
+  // 🔒 Require access key
   if (!key) {
-    return new Response("Unauthorized", { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" });
   }
 
-  const snap = await getDoc(doc(db, "sessions", key));
+  const snap = await getDocs(collection(db, "links"));
 
-  if (!snap.exists()) {
-    return new Response("Invalid or expired", { status: 403 });
-  }
-
-  const session = snap.data();
-
-  if (Date.now() > session.expires) {
-    await deleteDoc(doc(db, "sessions", key));
-    return new Response("Expired", { status: 403 });
-  }
-
-  if (session.id !== id) {
-    return new Response("Invalid link", { status: 403 });
-  }
-
-  // 🔥 one-time use
-  await deleteDoc(doc(db, "sessions", key));
-
-  // 🔥 fetch original link
-  const linksSnap = await getDocs(collection(db, "links"));
-
-  for (const docSnap of linksSnap.docs) {
+  for (const docSnap of snap.docs) {
     const data = docSnap.data();
+
     if (data.customId === id) {
-      return Response.redirect(data.externalLink);
+      return NextResponse.redirect(data.externalLink);
     }
   }
 
-  return new Response("Not found", { status: 404 });
+  return NextResponse.json({ error: "Not found" });
 }
