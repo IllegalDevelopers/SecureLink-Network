@@ -27,7 +27,7 @@ export default function VerifyPage() {
       const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, timestamp: startTime })
+        body: JSON.stringify({ token, timestamp: startTime, id })
       });
 
       const data = await res.json();
